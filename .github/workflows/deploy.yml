@@ -1,3 +1,4 @@
+
 name: Deploy to GitHub Pages
 
 on:
@@ -18,7 +19,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -30,9 +30,45 @@ jobs:
       - name: Generate Firebase config
         env:
           PS_FIREBASE_CONFIG: ${{ secrets.PS_FIREBASE_CONFIG }}
-        run: node .github/scripts/generate-firebase-config.cjs
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
 
-      - name: Configure GitHub Pages
+          const raw = process.env.PS_FIREBASE_CONFIG;
+
+          if (!raw) {
+            throw new Error('Missing PS_FIREBASE_CONFIG secret');
+          }
+
+          const config = JSON.parse(raw);
+
+          const required = [
+            'apiKey',
+            'authDomain',
+            'projectId',
+            'storageBucket',
+            'messagingSenderId',
+            'appId',
+            'databaseURL'
+          ];
+
+          for (const key of required) {
+            if (!config[key]) {
+              throw new Error('Missing Firebase config key: ' + key);
+            }
+          }
+
+          fs.writeFileSync(
+            'config.js',
+            'window.PS_FIREBASE = ' +
+              JSON.stringify(config, null, 2) + ';\n'
+          );
+
+          console.log('Firebase config generated.');
+          NODE
+
+      - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 
       - name: Upload website
