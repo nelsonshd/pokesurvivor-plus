@@ -1,0 +1,82 @@
+```yaml
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate Firebase config
+        env:
+          PS_FIREBASE_CONFIG: ${{ secrets.PS_FIREBASE_CONFIG }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          const rawConfig = process.env.PS_FIREBASE_CONFIG;
+
+          if (!rawConfig) {
+            throw new Error('Missing GitHub Secret: PS_FIREBASE_CONFIG');
+          }
+
+          const config = JSON.parse(rawConfig);
+
+          const requiredKeys = [
+            'apiKey',
+            'authDomain',
+            'projectId',
+            'storageBucket',
+            'messagingSenderId',
+            'appId',
+            'databaseURL'
+          ];
+
+          for (const key of requiredKeys) {
+            if (!config[key]) {
+              throw new Error(`Missing Firebase config key: ${key}`);
+            }
+          }
+
+          fs.writeFileSync(
+            'config.js',
+            'window.PS_FIREBASE = ' +
+              JSON.stringify(config, null, 2) + ';\n'
+          );
+
+          console.log('Firebase config generated successfully.');
+          NODE
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload website files
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+```
