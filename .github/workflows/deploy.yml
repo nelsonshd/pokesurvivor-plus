@@ -1,4 +1,3 @@
-```yaml
 name: Deploy to GitHub Pages
 
 on:
@@ -12,20 +11,28 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Generate Firebase config
         env:
           PS_FIREBASE_CONFIG: ${{ secrets.PS_FIREBASE_CONFIG }}
-        run: |
-          echo "window.PS_FIREBASE = $PS_FIREBASE_CONFIG;" > config.js
+        run: node .github/scripts/generate-firebase-config.cjs
 
-      - name: Configure Pages
+      - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
       - name: Upload website
@@ -33,6 +40,6 @@ jobs:
         with:
           path: .
 
-      - name: Deploy
+      - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
-```
