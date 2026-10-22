@@ -12,64 +12,27 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Generate Firebase config
         env:
           PS_FIREBASE_CONFIG: ${{ secrets.PS_FIREBASE_CONFIG }}
-        shell: bash
         run: |
-          node <<'NODE'
-          const fs = require('fs');
+          echo "window.PS_FIREBASE = $PS_FIREBASE_CONFIG;" > config.js
 
-          const raw = process.env.PS_FIREBASE_CONFIG;
-
-          if (!raw) {
-            throw new Error('Missing PS_FIREBASE_CONFIG secret');
-          }
-
-          const config = JSON.parse(raw);
-
-          const required = [
-            'apiKey',
-            'authDomain',
-            'projectId',
-            'storageBucket',
-            'messagingSenderId',
-            'appId',
-            'databaseURL'
-          ];
-
-          for (const key of required) {
-            if (!config[key]) {
-              throw new Error('Missing Firebase config key: ' + key);
-            }
-          }
-
-          fs.writeFileSync(
-            'config.js',
-            'window.PS_FIREBASE = ' +
-              JSON.stringify(config, null, 2) + ';\n'
-          );
-
-          console.log('Firebase config generated.');
-          NODE
-
-      - name: Setup GitHub Pages
+      - name: Configure Pages
         uses: actions/configure-pages@v5
 
       - name: Upload website
-        uses: actions/upload-pages-artifact@
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy
+        uses: actions/deploy-pages@v4
+```
